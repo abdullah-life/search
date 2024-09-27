@@ -1,9 +1,15 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Models\Entry;
+use App\Models\Test;
+use App\Models\User;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Spatie\QueryBuilder\QueryBuilder;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -15,7 +21,32 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+
+    $model = User::class;
+
+    $available_columns = Schema::getColumnListing(app($model)->getTable());
+
+    $users = QueryBuilder::for($model)
+        ->allowedFilters(['name'])
+        ->paginate(request()->perPage ?? 15)
+        ->appends(request()->query());
+
+    $columns = collect($available_columns)->map(function ($c) {
+        return [
+            'name' => str($c)->headline()->upper(),
+            'sortable' => false,
+            'filterable' => false,
+            'searchable' => false,
+            'type' => 'text'
+        ];
+    });
+
+    $users = collect($users);
+
+    $users->prepend($columns, 'columns');
+
+
+    return Inertia::render('Dashboard', ['users' => $users]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -24,4 +55,4 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
